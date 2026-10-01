@@ -74,11 +74,21 @@ değiştirilebilir.
 
 ### Makro kaydı
 
-1. **Koşan adam tuşuna bas** → kayıt moduna girilir
-2. **Bir S tuşuna bas** → o tuşa atanmak üzere kayıt başlar (LED yanıp söner)
-3. **İstediğin tuş dizisini bas**
-4. **Koşan adam tuşuna tekrar bas** → kayıt biter
-5. Artık o S tuşu kaydettiğin diziyi oynatır
+**Basit yol — kayıt tuşuna gerek yok:**
+
+1. Makro atayacağın **S tuşuna basılı tut** → LED yanıp sönmeye başlar (kayıt modu)
+2. **İstediğin tuş dizisini bas** (örn. `Ctrl+Shift+T`)
+3. **Aynı S tuşuna tekrar basılı tut** → kayıt biter, LED sabit yanar
+4. Artık o S tuşu kaydettiğin diziyi oynatır
+
+**Alternatif — koşan adam (record) tuşu ile:**
+
+1. Koşan adam tuşuna bas → kayıt moduna girilir
+2. Bir S tuşuna bas → kayıt başlar
+3. Diziyi bas
+4. Koşan adam tuşuna tekrar bas → kayıt biter
+
+Her iki yolda da makrolar sistem çapında çalışır (X11/Wayland fark etmez).
 
 Makro silmek için ilgili profil klasöründeki XML dosyasını silin:
 
