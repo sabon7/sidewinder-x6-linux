@@ -46,9 +46,10 @@ git clone --depth 1 https://github.com/tolga9009/sidewinderd "$TMP/sidewinderd"
 
 # Yamalar:
 #  a) CMake >= 4 uyumlulugu (CMAKE_MINIMUM_REQUIRED 2.8.8 reddediliyor)
-#  b) Media center (0x10) mod-degistirme islevini kapat -> F13 kisayoluna donusur
-#     (mod durumu x6feat araciyla yonetilir; makro kaydi bu moddan bagimsizdir)
-sed -i 's/keyData->index == SW_KEY_GAMECENTER/false \/\* media center: ozel islev *\//' \
+#  b) Media center (0x10) basildiginda sanal klavyeden F13 yayinla.
+#     Boylece tuus KDE/GNOME kisayollarindan herhangi bir isleve baglanabilir.
+#     (Macro-pad modu x6feat araciyla yonetilir.)
+sed -i 's/toggleMacroPad();/virtInput_->sendEvent(EV_KEY, KEY_F13, 1); virtInput_->sendEvent(EV_KEY, KEY_F13, 0);/' \
     "$TMP/sidewinderd/src/vendor/microsoft/sidewinder.cpp"
 
 cmake -S "$TMP/sidewinderd" -B "$TMP/build" \
@@ -81,7 +82,8 @@ mkdir -p /var/lib/sidewinderd
 chown "$USER_NAME:$USER_NAME" /var/lib/sidewinderd
 usermod -aG input "$USER_NAME"
 systemctl daemon-reload
-systemctl enable --now sidewinderd
+systemctl enable sidewinderd
+systemctl restart sidewinderd
 
 # ---------------------------------------------------------------- 3. keyd
 echo "==> keyd etkinlestiriliyor..."
@@ -139,21 +141,17 @@ gcc -O2 "$TMP/x6feat.c" -o /usr/local/bin/x6feat
 echo "==> x6-profd kuruluyor..."
 cat > /usr/local/bin/x6-profd.py <<'PYEOF'
 #!/usr/bin/env python3
-# x6-profd.py - X6: profil kilidi + media center — TAM YOKLAMA tabanli
+# x6-profd.py - X6 profil izleyici: profil 2/3'te Windows tuslarini kilitler
 #
-# Neden yoklama? Bu cihazda HID input raporlari (rapor 01) cekirdekte
-# yalnizca bir okuyucuya (sidewinderd) aktariliyor; paylasim bozuk.
-# Feature raporlari (kontrol transferi) ise tum okuyucularla calisiyor.
-# Bu yuzden:
-#   - profil tespiti : rapor 07 (LED bitleri)  300 ms'de bir okunur
-#   - media center   : rapor 09 (0x02 biti toggle) 100 ms'de bir okunur
+# Tamamen YOKLAMA tabanli: HID input raporlari (rapor 01) bu cihazda
+# cekirdekte tek okuyucuya (sidewinderd) aktarildigi icin profil tespiti
+# feature raporu (rapor 07) okunarak yapilir - tum okuyucularla uyumlu.
+#
+# Media center tusunun islevlendirilmesi icin bkz. README (KDE/GNOME
+# kisayollarindan baglanir; keyd sanal klavyesi uzerinden iletilir).
 import os, fcntl, subprocess, time
 
 LOCK_PROFILES = {2, 3}          # bu profillerde Windows kilidi
-
-# Media center islevi: "lock" | "f13" | "mute" | "brightness" | "none"
-MEDIA_ACTION = "lock"
-BRIGHTNESS_STEP = "5%"
 
 CONF = "/etc/keyd/zz-x6-winlock.conf"
 CONF_BODY = """[ids]
@@ -163,40 +161,6 @@ CONF_BODY = """[ids]
 leftmeta = noop
 rightmeta = noop
 """
-
-_ui = None
-def fire_f13():
-    global _ui
-    if _ui is None:
-        from evdev import UInput, ecodes as ec
-        _ui = UInput({ec.EV_KEY: [ec.KEY_F13]}, name="x6-media",
-                     vendor=0x045e, product=0x074b)
-    _ui.write(1, 0x1AF, 1)   # EV_KEY, KEY_F13
-    _ui.syn()
-    _ui.write(1, 0x1AF, 0)
-    _ui.syn()
-
-_bright_up = [False]
-def media_action():
-    if MEDIA_ACTION == "lock":
-        r = subprocess.run(["loginctl", "lock-sessions"],
-                           capture_output=True, text=True)
-        print("ekran kilitlendi" if r.returncode == 0
-              else "lock calismadi: " + r.stderr.strip(), flush=True)
-    elif MEDIA_ACTION == "f13":
-        fire_f13()
-        print("F13 gonderildi", flush=True)
-    elif MEDIA_ACTION == "mute":
-        subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"],
-                       capture_output=True)
-        print("ses: ac/kapat", flush=True)
-    elif MEDIA_ACTION == "brightness":
-        _bright_up[0] = not _bright_up[0]
-        subprocess.run(["brightnessctl", "set",
-                        ("+" if _bright_up[0] else "-") + BRIGHTNESS_STEP],
-                       capture_output=True)
-        print("parlaklik:", "+" if _bright_up[0] else "-", BRIGHTNESS_STEP,
-              flush=True)
 
 def ioc(d, nr, ln):
     return (d << 30) | (0x48 << 8) | nr | (ln << 16)
@@ -253,33 +217,17 @@ def main():
             fd = os.open(node, os.O_RDWR | os.O_NONBLOCK)
         except OSError:
             time.sleep(2); continue
-        last_prof = None
-        last_mc = None
-        i = 0
+        last = None
         try:
             while True:
-                # --- rapor 09: media center (0x02 biti toggle) — 100 ms
-                b9 = bytearray(4); b9[0] = 9
                 try:
-                    fcntl.ioctl(fd, ioc(3, 7, 4), b9)
-                    mc = bool(b9[1] & 0x02)
-                    if last_mc is not None and mc != last_mc \
-                            and MEDIA_ACTION != "none":
-                        media_action()
-                    last_mc = mc
+                    prof = read_profile(fd)
                 except OSError:
-                    break                            # cihaz gitti
-                # --- rapor 07: profil — 300 ms
-                i += 1
-                if i % 3 == 0:
-                    try:
-                        prof = read_profile(fd)
-                    except OSError:
-                        break
-                    if prof != last_prof:
-                        apply(prof)
-                        last_prof = prof
-                time.sleep(0.1)
+                    break                            # cihaz gitti -> yeniden tara
+                if prof != last:
+                    apply(prof)
+                    last = prof
+                time.sleep(0.3)
         except OSError:
             pass
         try:
@@ -336,8 +284,11 @@ for n in sorted(os.listdir(base)):
             continue
         if not (b[1] & 1):
             b[1] |= 1
-            fcntl.ioctl(f, ioc(3, 6, 2), bytes(b))   # 0xC0024806
-            print("    Macro-pad modu acildi.")
+            try:
+                fcntl.ioctl(f, ioc(3, 6, 2), bytes(b))   # 0xC0024806
+                print("    Macro-pad modu acildi.")
+            except OSError as e:
+                print("    Uyari: macro-pad yazilamadi:", e)
         else:
             print("    Macro-pad modu zaten acik.")
         os.close(f)
@@ -355,6 +306,6 @@ echo "             sudo x6feat /dev/hidrawX off    (macro-pad kapat)"
 echo
 echo " Makro kaydi: makro tusu (karede top) -> S tusuna bas -> dizi -> makro tusu"
 echo " Makro silme: makro tusu -> S tusuna bas -> HICBIR SEY basmadan makro tusu"
-echo " Media center: ozellestirilebilir (x6-profd.py icindeki MEDIA_ACTION)"
+echo " Media center: F13 yayinlar - KDE kisayollarindan baglayin"
 echo " Profiller:   1/2/3 tuslari; profil 2-3'te Windows kilidi"
 echo "========================================================"
