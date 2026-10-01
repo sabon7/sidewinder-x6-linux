@@ -150,7 +150,7 @@ LOCK_PROFILES = {2, 3}          # bu profillerde Windows kilidi
 #   lock       : ekrani kilitle                             (loginctl)
 #   f13        : sanal F13 tusuna bas (sistem kisayollarina baglanir)
 #   none       : islev yok
-MEDIA_ACTION = "lock"
+MEDIA_ACTION = "f13"
 LONG_PRESS_SEC = 0.5
 BRIGHTNESS_STEP = "5%"
 

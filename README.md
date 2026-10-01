@@ -1,97 +1,80 @@
-# SideWinder X6 — CachyOS/Arch Linux Tam Destek Paketi
+# SideWinder X6 — Linux Destek Paketi
 
-Microsoft SideWinder X6 klavyenin oyun özelliklerini (makro tuşları, profil bankları,
-makro kayıt tuşu, LED'ler, profil bazlı Windows-tusu kilidi) Arch Linux türevi
-dağıtımlarda çalışır hale getiren tek-parça kurulum scripti ve dokümantasyon.
+Microsoft SideWinder X6 klavyesinin oyun özelliklerini Linux'ta tam çalıştıran
+paket: **makrolar, profil bankaları, profil bazlı Windows-tusu kilidi ve
+özelleştirilebilir media center tuşu** — tek komutla kurulum.
 
-> Üstteki [sidewinderd](https://github.com/tolga9009/sidewinderd) projesine dayanır;
-> bu repo onun kurulumunu, yapılandırmasını ve GitHub'da bulunmayan ek özellikleri
-> (profil bazlı Windows kilidi, macro-pad kontrol aracı, çekirdek ioctl uyumluluğu
-> çözümü) bir araya getirir.
+Makro altyapısı [sidewinderd](https://github.com/tolga9009/sidewinderd) projesine
+dayanır; bu paket onu kurar, yapılandırır ve GitHub'da bulunmayan ek
+özellikleriyle sarar.
 
-## Özellikler
+## Donanım Durumu
 
-- **Tek komutla kurulum:** `sudo ./install.sh` — Arch/CachyOS ve Ubuntu/Debian'da
-  bağımlılıkları, derlemeyi, servisleri ve yapılandırmayı tek adımda halleder
-- **Makro sistemi:** S1–S10 makro tuşları × 3 profil bankası (toplam 30 makro),
-  makro tuşu ile kayıt, boş makro ile silme
-- **Profil bazlı Windows-tusu kilidi:** 1/2/3 profil tuşlarıyla; oyun
-  profillerinde Windows tuşu otomatik kilitlenir, masaüstü profilinde serbest kalır
-- **Macro-pad modu kontrolü:** `x6feat` aracı ile modun durumunu görme ve açma
-- **Media center tuşu yeniden işlevli:** varsayılan ekran kilitleme; F13,
-  ses, parlaklık ya da kapalı — tek satırla seçilir
-- **Sistem çapında çalışır:** X11 ve Wayland'de aynı davranış
-- **Tam otomatik servisler:** sidewinderd, keyd ve x6-profd açılışta hazır olur
-- **Belgelenmiş protokol:** HID rapor düzeni ve ioctl değerleri tersine
-  mühendislikle çözülüp bu dosyada paylaşıldı
-
-## Faydalandığımız Açık Kaynak Projeler
-
-Bu paket, aşağıdaki harika projeler sayesinde mümkün oldu. Geliştiricilerine
-özellikle teşekkür ederiz:
-
-| Proje | Geliştirici | Bu paketteki rolü |
-|---|---|---|
-| [sidewinderd](https://github.com/tolga9009/sidewinderd) | Tolga Cakır ([@tolga9009](https://github.com/tolga9009)) | X6'nın makro, profil ve LED altyapısının tamamı |
-| [keyd](https://github.com/rvaiya/keyd) | Raheman Vaiya ([@rvaiya](https://github.com/rvaiya)) | Windows tuşu kilidinin tuş haritalama motoru |
-
-## Donanım Özellik Durumu
-
-| Özellik | Durum | Açıklama |
-|---|---|---|
-| Makro tuşları (S1–S10) | ✅ | sidewinderd |
-| Profil bankları (1/2/3) | ✅ | 3 × 10 = 30 ayrı makro kapasitesi |
-| Makro tuşu (karede top) | ✅ | Kayıt akışını başlatır/bitirir (0x11) |
-| Media center tuşu | ✅ | Özelleştirilebilir kısayol (varsayılan: F13) |
-| Profil tuşları (1/2/3) | ✅ | Bank değiştirir (0x14) |
-| Koşan adam tuşu | ❌ | Sinyal göndermiyor; Linux'ta işlevsiz |
-| Makro (S) ve profil LED'leri | ✅ | Hepsi yanıyor |
-| Profil bazlı Windows kilidi | ✅ | **Bu repoya özel** (keyd + x6-profd) |
-| Macro-pad modu elle kontrol | ✅ | **Bu repoya özel** (x6feat) |
-| Kayıt (record) LED'i | ❌ | Donanım sağlam; protokolü çözülmemiş (bkz. Protokol Notları) |
+| Özellik | Durum |
+|---|---|
+| Makro kaydı ve oynatma (makro tuşu / karede top) | ✅ |
+| 3 profil bankası (1/2/3) × 10 makro tuşu (S1–S10) | ✅ |
+| Makro (S) ve profil LED'leri | ✅ |
+| Profil bazlı Windows-tusu kilidi | ✅ |
+| Media center tuşu (F13, özelleştirilebilir) | ✅ |
+| Macro-pad modu yönetimi (`x6feat`) | ✅ |
+| Koşan adam tuşu | ❌ Sinyal göndermiyor; yalnızca LED'i değil tuşun kendisi de çalışmıyor |
 
 ## Desteklenen Sistemler
 
-| Dağıtım | Durum | Not |
-|---|---|---|
-| CachyOS / Arch / Manjaro / EndeavourOS | ✅ tam | `pacman`; keyd deposda mevcut |
-| Ubuntu / Debian / Mint / Pop!_OS | ✅ tam | `apt`; keyd otomatik kaynaktan derlenir |
-| Fedora / diğerleri | ⚠️ elle | Gerekenler: cmake, libconfig, tinyxml2, udev geliştirme başlıkları, keyd |
+| Dağıtım | Durum |
+|---|---|
+| CachyOS / Arch / Manjaro / EndeavourOS | ✅ `pacman` |
+| Ubuntu / Debian / Mint / Pop!_OS | ✅ `apt-get` (keyd otomatik kaynaktan derlenir) |
 
-Gereksinimler: Linux çekirdek 6.x (hidraw), X11 veya Wayland (keyd ikisinde de
-çalışır). Protokol bulguları çekirdek seviyesinde olduğundan dağıtımdan bağımsızdır.
+Gereksinim: Linux çekirdek 6.x, X11 veya Wayland.
 
 ## Kurulum
 
 ```bash
-git clone https://github.com/KULLANICI_ADIN/sidewinder-x6-linux.git
+git clone https://github.com/sabon7/sidewinder-x6-linux.git
 cd sidewinder-x6-linux
 sudo ./install.sh
 ```
 
-Script şunları yapar:
-
-1. Bağımlılıkları kurar: `base-devel cmake git libconfig tinyxml2 keyd`
-2. [sidewinderd](https://github.com/tolga9009/sidewinderd)'i kaynak kodundan derler
-   (CMake ≥ 4 uyumluluk bayrağı ile) ve kurar
-3. `/etc/sidewinderd.conf` yapılandırmasını oluşturur (root yerine gerçek kullanıcı,
-   kalıcı profil dizini `/var/lib/sidewinderd`)
-4. Kullanıcıyı `input` grubuna ekler
-5. `keyd`'yi kurar ve başlatır
-6. `x6feat` C aracını derler, `x6-profd` Python izleyicisini kurar
-7. Sistem servislerini (`sidewinderd`, `x6-profd`) etkinleştirir
-8. Macro-pad modunu açar
-
-**Kurulumdan sonra oturumu kapatıp açın** (`input` grubu üyeliğinin etkinleşmesi için).
+Script bağımlılıkları kurar, sidewinderd'i derler, servisleri yapılandırır,
+macro-pad modunu açar. Kurulumdan sonra **oturumu kapatıp açın** (input grubu
+için) ve klavyenizi çıkarıp takın.
 
 ## Kullanım
 
-### Profiller (1/2/3 tuşları)
+### Tuşların haritası (üst bölüm)
 
-1/2/3 tuşları üç ayrı makro "sayfası" arasında geçiş yapar; aktif profilin LED'i yanar.
-Her profilin kendi S1–S10 makro seti vardır (toplam 30 makro).
+| Tuş | HID kodu | İşlev |
+|---|---|---|
+| Makro tuşu (kare içinde top) | `0x11` | Makro kaydını başlatır/bitirir |
+| Media center tuşu | `0x10` | Sanal **F13** tuşu basar (aşağıda özelleştirme) |
+| Profil tuşları (1/2/3) | `0x14` | Aktif makro bankasını değiştirir |
+| Koşan adam tuşu | — | Hiçbir sinyal üretmiyor (bkz. Protokol Notları) |
 
-| Profil | Windows tuşu | Önerilen kullanım |
+### Makro kaydı
+
+1. **Makro tuşuna bas** (kare içinde top) → ışık yanar; S tuşları ve makro
+   tuşu yanıp sönmeye başlar
+2. **Makro atayacağın S tuşuna bas** → o tuş için kayıt başlar
+3. **İstediğin tuş dizisini bas** (örn. `Ctrl+Shift+T`)
+4. **Makro tuşuna tekrar bas** → kayıt biter, makro o S tuşuna atanmış olur
+
+Makroyu oynatmak için S tuşuna normal basman yeterli.
+
+**Alternatif:** S tuşuna **basılı tutarak** da kayıt yapılabilir
+(basılı tut → LED yanıp söner → dizi → tekrar basılı tut).
+
+**Makro silme** — boş makro kaydetmek silmek demektir:
+1. Makro tuşuna bas
+2. Silinecek makronun kayıtlı olduğu S tuşuna bas
+3. Hiçbir tuşa basmadan makro tuşuna tekrar bas → eski makro silinir
+
+### Profiller (1/2/3)
+
+Her profilin kendi S1–S10 makro seti vardır (toplam 30 makro). Önerilen düzen:
+
+| Profil | Windows tuşu | Kullanım |
 |---|---|---|
 | 1 | Serbest | Masaüstü / günlük işler |
 | 2 | Kilitli | Oyun profili A |
@@ -100,199 +83,121 @@ Her profilin kendi S1–S10 makro seti vardır (toplam 30 makro).
 Kilitli profiller `x6-profd.py` içindeki `LOCK_PROFILES = {2, 3}` satırından
 değiştirilebilir.
 
-### Tuşların haritası (üst bölüm)
+### Media center tuşu
 
-| Tuş | HID kodu | İşlev |
-|---|---|---|
-| Makro tuşu (kare içinde top) | `0x11` | Kayıt akışını başlatır/bitirir — makro kaydının ana tuşu |
-| Media center tuşu | `0x10` | Sanal F13 tuşu basar — sistem kısayollarına bağlanır |
-| Profil tuşları (1/2/3) | `0x14` | Aktif makro bankasını değiştirir |
-| Koşan adam tuşu | — | **Hiçbir sinyal göndermiyor**; Linux'ta işlevsiz |
+Varsayılan olarak media center tuşuna basınca sanal bir **F13** tuşu basılır.
+F13 normal klavyelerde bulunmadığı için hiçbir şeyle çakışmaz; masaüstü
+kısayollarından istediğiniz işleve bağlayın:
 
-> Not: Koşan adam tuşu Windows'ta Intellitype yüklüyken çalışıyor gibi
-> görünüyordu; Linux'ta hiçbir rapor üretmiyor. Kayıt LED'i sorunu da bu tuşla
-> ilgilidir (bkz. Protokol Notları).
+- **KDE:** Sistem Ayarları → Kısayollar → kendi kısayollarınız → yeni öğe →
+  komut/uygulama seçin (ör. `konsole`, `spectacle`) → kısayol olarak media
+  center tuşuna basın
+- **GNOME:** Ayarlar → Klavye → Kısayollar → Özel Kısayollar
 
-### Media center tuşu — özelleştirilebilir işlev
-
-Media center tuşuna atanan işlev `x6-profd.py` içindeki **tek satırla** değişir:
+**İşlevi değiştirmek isterseniz:** `x6-profd.py` içindeki tek satırı değiştirin:
 
 ```python
-MEDIA_ACTION = "lock"   # "lock" | "f13" | "mute" | "brightness" | "none"
+MEDIA_ACTION = "f13"   # "lock" | "mute" | "brightness" | "none"
 ```
 
-| Değer | Davranış | Not |
-|---|---|---|
-| `"lock"` | Ekranı kilitle (varsayılan) | `loginctl`, servis root çalıştığı için izin sorunu yok |
-| `"f13"` | Sanal **F13** tuşu basar | KDE/GNOME kısayollarından istediğiniz işleve bağlayın (terminal, ekran görüntüsü...) |
-| `"mute"` | Sesi aç/kapat | `pactl` — klavyede zaten ses tuşları varsa gereksiz |
-| `"brightness"` | Kısa bas: kısar / uzun bas: açar | Yalnızca **dizüstü** ekranlarda çalışır (`brightnessctl`) |
-| `"none"` | İşlev yok | |
+| Değer | Davranış |
+|---|---|
+| `"f13"` | Sanal F13 basar (varsayılan) — sistem kısayollarına bağlanır |
+| `"lock"` | Ekranı kilitle |
+| `"mute"` | Sesi aç/kapat |
+| `"brightness"` | Kısa bas: kıs / uzun bas: aç — yalnızca dizüstü ekranlarda |
+| `"none"` | İşlev yok |
 
-Adım ayarı için `BRIGHTNESS_STEP = "5%"` satırını değiştirin. Değişiklikten sonra:
+Değişiklikten sonra: `sudo systemctl restart x6-profd`
+
+## Araçlar
 
 ```bash
-sudo systemctl restart x6-profd
+sudo x6feat /dev/hidrawX        # rapor 07 durumu (macro-pad açık/kapalı)
+sudo x6feat /dev/hidrawX on     # macro-pad aç (numpad makro moduna geçer)
+sudo x6feat /dev/hidrawX off    # macro-pad kapat (numpad rakam moduna döner)
 ```
 
-sidewinderd derlenirken 0x10'in mod-değiştirme işlevi kapatılır; makro-pad modu
-`x6feat` ile yönetilir (`on`/`off`). Makro kaydı bu moddan bağımsız çalışır.
+(X düğüm numarası için: `/sys/class/hidraw/*/device/uevent` içinde `045E`/`074B`
+aranan düğümdür.)
 
-### Makro kaydı
-
-**Makro tuşu** = klavyenin sol üstündeki, **kare içinde top** simgeli tuş.
-
-1. **Makro tuşuna bas** → ışık yanar; S tuşları ve makro tuşu yanıp sönmeye
-   başlar (atama modu)
-2. **Makro atayacağın S tuşuna bas** → o tuş için kayıt başlar
-3. **İstediğin tuş dizisini bas** (örn. `Ctrl+Shift+T`)
-4. **Makro tuşuna tekrar bas** → kayıt biter, makro o S tuşuna atanmış olur
-
-Makroyu oynatmak için S tuşuna normal şekilde basman yeterli.
-
-**Alternatif:** S tuşuna **basılı tutarak** da kayıt yapılabilir
-(basılı tut → LED yanıp söner → dizi → tekrar basılı tut).
-
-### Makro silme
-
-Boş makro kaydetmek silmek demektir:
-
-1. **Makro tuşuna bas** → ışıklar yanıp sönmeye başlar
-2. **Sileceğin makronun kayıtlı olduğu S tuşuna bas**
-3. **Hiçbir tuşa basmadan** makro tuşuna tekrar bas → o S tuşuna boş makro
-   kaydedilir, eski makro silinir
-
-Makrolar sistem çapında çalışır (X11/Wayland fark etmez).
-
-> Teknik not: Makrolar `/var/lib/sidewinderd/profile_X/sY.xml` dosyalarında
-> tutulur; elle düzenleme/yedekleme için bu dizine bakabilirsiniz.
-
-### Araçlar
-
-```bash
-sudo x6feat /dev/hidrawX        # rapor 07 durumunu okur (macro-pad açık/kapalı)
-sudo x6feat /dev/hidrawX on     # macro-pad modunu açar
-sudo x6feat /dev/hidrawX ledon  # record LED bitlerini yakar (test amaçlı)
-```
-
-(X düğüm numarası cihaza göre değişir; `ls /dev/hidraw*` ile bakın veya
-`/sys/class/hidraw/*/device/uevent` içinde `045E`/`074B` arayın.)
-
-**Macro-pad modu nedir:** Makro tuşu (karede top) bu modu aç/kapatır. Kapalıyken
-ayrılabilir numpad normal rakam tuşu, açıkken ek makro tuşu (S11+) olarak çalışır.
-Bazı işlevler (ör. kayıt tuşu) bu moda bağlıdır; mod kapanırsa `x6feat ... on` ile
-açın ya da top tuşuna bir kez basın.
-
-**Tuşların görev dağılımı:** Kayıt akışını **makro tuşu** (kare içinde top,
-`0x11`) başlatır ve bitirir. **Media center tuşu** (`0x10`) makro-pad modunu
-açar/kapatır — mod kapalıysa numpad normal rakam tuşu, açıkken ek makro tuşu
-(S11+) olarak çalışır ve kayıt akışının çalışması için bu modun açık olması gerekir.
-Yanlışlıkla kapatırsanız media center tuşuna tekrar basın ya da
-`sudo x6feat /dev/hidrawX on` ile açın.
-
-## Protokol Notları (tersine mühendislik bulguları)
-
-Bu depo, X6'nın üreticiye özel HID protokolüne dair şu bulguları belgeler:
+## Protokol Notları (tersine mühendislik)
 
 ### Çalışan ioctl değerleri
 
-Yeni Linux çekirdeklerinde hidraw'ın "raw" ioctl ailesi (`HIDIOCGRAWFEATURE`,
-numara `0x07`, yön `READ`) bazı sistemlerde `EINVAL` ile reddediliyor veya boş veri
-dönüyor. **Çalışan değerler** (sistem başlıklarındaki `HIDIOCGFEATURE`/`HIDIOCSFEATURE`
-makrolarından alınmıştır):
+Yeni çekirdeklerde hidraw'ın "raw" ioctl ailesi (`0x07`, yön `READ`) reddedilebiliyor
+ya da boş veri dönüyor. Çalışan değerler:
 
 ```
 Okuma:  0xC0024807   (_IOC(READ|WRITE, 'H', 0x07, 2))
 Yazma:  0xC0024806   (_IOC(READ|WRITE, 'H', 0x06, 2))
 ```
 
-Örnek (rapor 07 = kontrol/LED raporu, 2 bayt):
-
-```python
-import os, fcntl
-f = os.open("/dev/hidrawX", os.O_RDWR)
-buf = bytearray(2); buf[0] = 7
-fcntl.ioctl(f, 0xC0024807, buf)          # oku
-buf[1] |= 1                              # macro-pad biti
-fcntl.ioctl(f, 0xC0024806, bytes(buf))   # yaz
-```
-
-### Rapor 07 (feature, 1 bayt veri)
+### Rapor 07 (feature — kontrol/LED, 1 bayt veri)
 
 | Bit | Anlam |
 |---|---|
-| `0x01` | Macro-pad modu (top tuşu ters çevirir) |
+| `0x01` | Macro-pad modu |
 | `0x02` | Otomatik profil (?) |
 | `0x04` | Profil 1 LED |
 | `0x08` | Profil 2 LED |
 | `0x10` | Profil 3 LED |
-| `0x60` | Record LED bitleri (sidewinderd tanımı — X6'da **etkisiz**, bkz. aşağı) |
+| `0x60` | Record LED bitleri (X6'da etkisiz — bkz. aşağı) |
 
-### Rapor 01 (input, 8 bayt) — özel tuşlar (6. bayt)
+### Rapor 01 (input — özel tuşlar, 6. bayt)
 
 | Değer | Tuş |
 |---|---|
-| `0x10` | Top tuşu ("Game Center") — macro-pad aç/kapa |
-| `0x11` | Koşan adam (Record) — makro kaydı başlat/bitir |
-| `0x14` | Profil tuşu — bank değiştir |
+| `0x11` | Makro tuşu (karede top) — kayıt başlat/bitir |
+| `0x10` | Media center tuşu |
+| `0x14` | Profil tuşları (1/2/3) |
 
-### Bilinen sorun: Koşan adam tuşunun LED'i
+### Bilinen sorun: koşan adam tuşu
 
-Rapor 07'nin **tüm bitleri 1 yapıldığında** (`0xFF` testi) X6'da bütün LED'ler
-yanarken yalnızca koşan adam tuşunun ışığı yanmaz. Rapor 09 ve `0A` ise hidraw
-üzerinden yazılamaz (`EPIPE`). Windows Intellitype bu LED'i sürüyor; kullanılan
-protokol adımı bilinmiyor. Donanım sağlamdır (Windows'ta çalışıyor). Bu bulgu
+Koşan adam tuşu Linux'ta **hiçbir HID raporu üretmiyor**; sidewinderd'in
+kayıt LED'i bitleri (0x60) de rapor 07'ye `0xFF` yazılsa bile bu tuşu yakmıyor.
+Rapor 09 ve `0A` hidraw üzerinden yazılamıyor (`EPIPE`). Donanım Windows'ta
+Intellitype ile çalışıyor; kullanılan protokol bilinmiyor. Bu bulgu
 [sidewinderd #50](https://github.com/tolga9009/sidewinderd/issues/50)'nin
 eksik kalan parçasıdır.
 
 ## Bilinen Sorunlar
 
-- **`keyd reload` SEGV (keyd 2.6.0)**: keyd'in SIGHUP ile yeniden yapılandırma
-  yolunda çökme hatası vardır (`SIGSEGV`). `x6-profd` bu yüzden `reload` yerine
-  `systemctl restart keyd` kullanır; profil değişiminde çok kısa bir giriş
-  kesintisi olması normaldir.
-- **Koşan adam tuşunun LED'i yanmıyor**: Yukarıdaki Protokol Notları bölümüne bakın.
+- **`keyd reload` SEGV (keyd 2.6.0)**: SIGHUP ile yeniden yapılandırma
+  çökebiliyor. `x6-profd` bu yüzden `systemctl restart keyd` kullanır; profil
+  değişiminde çok kısa bir giriş kesintisi normaldir.
+- **Koşan adam tuşu**: yukarıdaki Protokol Notları'na bakın.
 
 ## Sorun Giderme
 
 ```bash
-# Servis logları
-journalctl -u sidewinderd -f
-journalctl -u x6-profd -f
-
-# Cihaz doğru tanınmış mı
-journalctl -u sidewinderd -n 30 | grep "Found device"
-
-# X6 hangi hidraw düğümleri
-grep -l . /sys/class/hidraw/hidraw*/device/uevent | xargs grep -l 045E
+journalctl -u sidewinderd -f     # makro servisi
+journalctl -u x6-profd -f        # profil izleyici + media center
+systemctl status keyd            # tuş haritalama
 ```
 
-- Koşan adam tepkisizse → macro-pad modu kapalıdır: `sudo x6feat /dev/hidrawX on`
-- Makro kaydı çalışmıyorsa → kullanıcı `input` grubunda mı? (`groups`) Oturum
-  kapatıp açtınız mı?
-- `CMake < 3.5 uyumluluğu kaldırıldı` hatası alırsanız → script zaten
-  `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` ile derliyor; eski elle kurulum yaptıysanız
-  bu repodaki `install.sh`'yi kullanın.
+- Makro kaydı tepkisizse: `sudo x6feat /dev/hidrawX on` (macro-pad modu
+  kapanmış olabilir)
+- `brightnessctl` yalnızca dizüstü ekranlarda çalışır; masaüstü monitörler
+  için DDC/CI gerekir (paket kapsamı dışı)
 
 ## Dosya Yapısı
 
 ```
 install.sh     # tek parça kurulum (tüm araçlar ve servisler gömülü)
-uninstall.sh   # kurulumu kaldırır (paketleri elle kaldırma notu içinde)
+uninstall.sh   # kurulumu kaldırır
+x6-profd.py    # profil izleyici + media center işlevi (install.sh aynısını kurar)
 README.md      # bu dosya
 ```
 
-## Kaynaklar ve Teşekkürler
+## Faydalandığımız Açık Kaynak Projeler
 
-- [sidewinderd](https://github.com/tolga9009/sidewinderd) — Tolga Cakir (GPL).
-  Bu repo onun çalışmasını kurulum ve ek özelliklerle sarar; sidewinderd'in
-  kendisi değiştirilmemiştir.
-- [keyd](https://github.com/rvaiya/keyd) — sistem çapında tuş haritalama.
-- USB HID rapor tanımları `usbhid-dump` ile, davranış `strace` ve
-  sidewinderd kaynak kodu ile analiz edilmiştir.
+| Proje | Geliştirici | Rolü |
+|---|---|---|
+| [sidewinderd](https://github.com/tolga9009/sidewinderd) | Tolga Cakır ([@tolga9009](https://github.com/tolga9009)) | X6'nın makro, profil ve LED altyapısı |
+| [keyd](https://github.com/rvaiya/keyd) | Raheman Vaiya ([@rvaiya](https://github.com/rvaiya)) | Windows tuşu kilidinin tuş haritalama motoru |
 
 ## Lisans
 
-sidewinderd kısmı [GPL](https://github.com/tolga9009/sidewinderd) lisansıyla
-dağıtılır. Bu repodaki ek scriptler (`install.sh`, `x6feat.c`, `x6-profd.py`)
-istediğiniz gibi kullanılabilir (public domain / MIT gibi düşünebilirsiniz).
+sidewinderd kısmı [GPL](https://github.com/tolga9009/sidewinderd) ile dağıtılır.
+Bu repodaki ek scriptler serbestçe kullanılabilir.
