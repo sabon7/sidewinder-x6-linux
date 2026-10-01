@@ -139,19 +139,20 @@ gcc -O2 "$TMP/x6feat.c" -o /usr/local/bin/x6feat
 echo "==> x6-profd kuruluyor..."
 cat > /usr/local/bin/x6-profd.py <<'PYEOF'
 #!/usr/bin/env python3
-# x6-profd.py - X6 profil izleyici + media center (0x10) ozellestirilebilir islev
-import os, fcntl, selectors, subprocess, time
+# x6-profd.py - X6: profil kilidi + media center — TAM YOKLAMA tabanli
+#
+# Neden yoklama? Bu cihazda HID input raporlari (rapor 01) cekirdekte
+# yalnizca bir okuyucuya (sidewinderd) aktariliyor; paylasim bozuk.
+# Feature raporlari (kontrol transferi) ise tum okuyucularla calisiyor.
+# Bu yuzden:
+#   - profil tespiti : rapor 07 (LED bitleri)  300 ms'de bir okunur
+#   - media center   : rapor 09 (0x02 biti toggle) 100 ms'de bir okunur
+import os, fcntl, subprocess, time
 
 LOCK_PROFILES = {2, 3}          # bu profillerde Windows kilidi
 
-# Media center (0x10) islevi: "brightness" | "mute" | "lock" | "f13" | "none"
-#   brightness : kisa bas = parlaklik kis / uzun bas = ac   (brightnessctl)
-#   mute       : sesi ac/kapat (toggle)                     (pactl)
-#   lock       : ekrani kilitle                             (loginctl)
-#   f13        : sanal F13 tusuna bas (sistem kisayollarina baglanir)
-#   none       : islev yok
-MEDIA_ACTION = "f13"
-LONG_PRESS_SEC = 0.5
+# Media center islevi: "lock" | "f13" | "mute" | "brightness" | "none"
+MEDIA_ACTION = "lock"
 BRIGHTNESS_STEP = "5%"
 
 CONF = "/etc/keyd/zz-x6-winlock.conf"
@@ -170,30 +171,32 @@ def fire_f13():
         from evdev import UInput, ecodes as ec
         _ui = UInput({ec.EV_KEY: [ec.KEY_F13]}, name="x6-media",
                      vendor=0x045e, product=0x074b)
-    _ui.write(1, 0x1AF, 1)   # EV_KEY, KEY_F13, press
+    _ui.write(1, 0x1AF, 1)   # EV_KEY, KEY_F13
     _ui.syn()
     _ui.write(1, 0x1AF, 0)
     _ui.syn()
 
-def media_action(long_press):
-    if MEDIA_ACTION == "brightness":
-        subprocess.run(["brightnessctl", "set",
-                        ("+" if long_press else "-") + BRIGHTNESS_STEP],
-                       capture_output=True)
-        print("parlaklik:", "+" if long_press else "-", BRIGHTNESS_STEP, flush=True)
+_bright_up = [False]
+def media_action():
+    if MEDIA_ACTION == "lock":
+        r = subprocess.run(["loginctl", "lock-sessions"],
+                           capture_output=True, text=True)
+        print("ekran kilitlendi" if r.returncode == 0
+              else "lock calismadi: " + r.stderr.strip(), flush=True)
+    elif MEDIA_ACTION == "f13":
+        fire_f13()
+        print("F13 gonderildi", flush=True)
     elif MEDIA_ACTION == "mute":
         subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"],
                        capture_output=True)
         print("ses: ac/kapat", flush=True)
-    elif MEDIA_ACTION == "lock":
-        r = subprocess.run(["loginctl", "lock-sessions"],
-                           capture_output=True, text=True)
-        if r.returncode != 0:
-            print("lock calismadi:", r.stderr.strip(), flush=True)
-        else:
-            print("ekran kilitlendi", flush=True)
-    elif MEDIA_ACTION == "f13":
-        fire_f13()
+    elif MEDIA_ACTION == "brightness":
+        _bright_up[0] = not _bright_up[0]
+        subprocess.run(["brightnessctl", "set",
+                        ("+" if _bright_up[0] else "-") + BRIGHTNESS_STEP],
+                       capture_output=True)
+        print("parlaklik:", "+" if _bright_up[0] else "-", BRIGHTNESS_STEP,
+              flush=True)
 
 def ioc(d, nr, ln):
     return (d << 30) | (0x48 << 8) | nr | (ln << 16)
@@ -246,34 +249,44 @@ def main():
             print("X6 bulunamadi, 3 sn...", flush=True)
             time.sleep(3); continue
         print("izleniyor:", node, flush=True)
-        fd = os.open(node, os.O_RDWR | os.O_NONBLOCK)
         try:
-            apply(read_profile(fd))
+            fd = os.open(node, os.O_RDWR | os.O_NONBLOCK)
         except OSError:
-            pass
-        sel = selectors.DefaultSelector()
-        sel.register(fd, selectors.EVENT_READ)
-        press_t = None
+            time.sleep(2); continue
+        last_prof = None
+        last_mc = None
+        i = 0
         try:
             while True:
-                for key, _ in sel.select():
-                    data = os.read(key.fileobj, 64)
-                    if len(data) >= 8 and data[0] == 1:
-                        code = data[6]
-                        if code == 0x14:              # profil tuşu
-                            time.sleep(0.15)
-                            try:
-                                apply(read_profile(fd))
-                            except OSError:
-                                pass
-                        elif code == 0x10 and MEDIA_ACTION != "none":
-                            press_t = time.time()     # media center basıldı
-                        elif code == 0 and press_t is not None:
-                            held = time.time() - press_t
-                            press_t = None            # media center bırakıldı
-                            media_action(held >= LONG_PRESS_SEC)
+                # --- rapor 09: media center (0x02 biti toggle) — 100 ms
+                b9 = bytearray(4); b9[0] = 9
+                try:
+                    fcntl.ioctl(fd, ioc(3, 7, 4), b9)
+                    mc = bool(b9[1] & 0x02)
+                    if last_mc is not None and mc != last_mc \
+                            and MEDIA_ACTION != "none":
+                        media_action()
+                    last_mc = mc
+                except OSError:
+                    break                            # cihaz gitti
+                # --- rapor 07: profil — 300 ms
+                i += 1
+                if i % 3 == 0:
+                    try:
+                        prof = read_profile(fd)
+                    except OSError:
+                        break
+                    if prof != last_prof:
+                        apply(prof)
+                        last_prof = prof
+                time.sleep(0.1)
         except OSError:
-            os.close(fd); time.sleep(2)
+            pass
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        time.sleep(2)
 
 main()
 PYEOF

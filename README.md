@@ -18,7 +18,7 @@ dayanır; bu paket onu kurar, yapılandırır ve GitHub'da bulunmayan ek
 | Profil bazlı Windows-tusu kilidi | ✅ |
 | Media center tuşu (F13, özelleştirilebilir) | ✅ |
 | Macro-pad modu yönetimi (`x6feat`) | ✅ |
-| Koşan adam tuşu | ❌ Sinyal göndermiyor; yalnızca LED'i değil tuşun kendisi de çalışmıyor |
+| Koşan adam tuşu | ✅ | Turbo (otomatik tekrar): basılı tutulan tuşu sürekli tekrarlatır |
 
 ## Desteklenen Sistemler
 
@@ -50,7 +50,7 @@ için) ve klavyenizi çıkarıp takın.
 | Makro tuşu (kare içinde top) | `0x11` | Makro kaydını başlatır/bitirir |
 | Media center tuşu | `0x10` | Sanal **F13** tuşu basar (aşağıda özelleştirme) |
 | Profil tuşları (1/2/3) | `0x14` | Aktif makro bankasını değiştirir |
-| Koşan adam tuşu | — | Hiçbir sinyal üretmiyor (bkz. Protokol Notları) |
+| Koşan adam tuşu | `0x11` | Turbo — birlikte basılan tuşu sürekli tekrarlatır |
 
 ### Makro kaydı
 
@@ -69,6 +69,13 @@ Makroyu oynatmak için S tuşuna normal basman yeterli.
 1. Makro tuşuna bas
 2. Silinecek makronun kayıtlı olduğu S tuşuna bas
 3. Hiçbir tuşa basmadan makro tuşuna tekrar bas → eski makro silinir
+
+### Koşan adam tuşu — turbo (otomatik tekrar)
+
+Tuşu **basılı tutarken** bir tuşa dokunursanız o tuş sürekli tekrar eder
+(örn. koşan adam + `S` → `ssssss...`). Tuşun LED'i turbo aktifken yanar.
+Oyuncu olmayan kullanım için çoğu zaman gerekmez; tuşu tek başına basmak
+bir şey yapmaz (normaldir, bozuk değil).
 
 ### Profiller (1/2/3)
 
@@ -152,21 +159,29 @@ Yazma:  0xC0024806   (_IOC(READ|WRITE, 'H', 0x06, 2))
 | `0x10` | Media center tuşu |
 | `0x14` | Profil tuşları (1/2/3) |
 
-### Bilinen sorun: koşan adam tuşu
+### Çözülmüş gizem: koşan adam tuşu aslında "Turbo"
 
-Koşan adam tuşu Linux'ta **hiçbir HID raporu üretmiyor**; sidewinderd'in
-kayıt LED'i bitleri (0x60) de rapor 07'ye `0xFF` yazılsa bile bu tuşu yakmıyor.
-Rapor 09 ve `0A` hidraw üzerinden yazılamıyor (`EPIPE`). Donanım Windows'ta
-Intellitype ile çalışıyor; kullanılan protokol bilinmiyor. Bu bulgu
-[sidewinderd #50](https://github.com/tolga9009/sidewinderd/issues/50)'nin
-eksik kalan parçasıdır.
+Koşan adam tuşu uzun süre "arızalı" sanıldı; asıl gerçek şu: **bu tuş bir
+otomatik tekrar (turbo) tuşudur.**
+
+- **Tek başına basınca firmware hiçbir HID raporu üretmiyor** — bu yüzden
+  evdev/hidraw dinlemeleri ve Windows USBPcap yakalamalarında tuş "ölü" gibi
+  göründü
+- **Basılı tutup başka bir tuşa basınca** (örn. koşan adam + `S`) o tuşun
+  tekrar raporları üretiliyor (`ssssss...`); tuşun LED'i turbo aktifken yanıyor
+- LED, rapor 07'nin 0x60 bitleriyle sürülmüyor — turbo LED'i yalnızca turbo
+  etkinken firmware tarafından yakılıyor (`0xFF` LED testinde yanmamasının
+  sebebi bu)
+
+sidewinderd kaynak kodunda bu tuş `SW_KEY_RECORD` (0x11) olarak geçiyor;
+X6'da gerçek davranış turbo olarak belgelenmiştir. Bu bulgu
+[sidewinderd #50](https://github.com/tolga9009/sidewinderd/issues/50)'ye katkıdır.
 
 ## Bilinen Sorunlar
 
 - **`keyd reload` SEGV (keyd 2.6.0)**: SIGHUP ile yeniden yapılandırma
   çökebiliyor. `x6-profd` bu yüzden `systemctl restart keyd` kullanır; profil
   değişiminde çok kısa bir giriş kesintisi normaldir.
-- **Koşan adam tuşu**: yukarıdaki Protokol Notları'na bakın.
 
 ## Sorun Giderme
 
