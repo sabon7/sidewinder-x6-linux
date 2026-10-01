@@ -186,11 +186,11 @@ def apply(prof):
     exists = os.path.exists(CONF)
     if lock and not exists:
         open(CONF, "w").write(CONF_BODY)
-        subprocess.run(["systemctl", "restart", "keyd"], capture_output=True)
+        subprocess.run(["keyd", "reload"], capture_output=True)
         print(f"profil {prof}: Windows tuslari KILITLI", flush=True)
     elif not lock and exists:
         os.remove(CONF)
-        subprocess.run(["systemctl", "restart", "keyd"], capture_output=True)
+        subprocess.run(["keyd", "reload"], capture_output=True)
         print(f"profil {prof}: Windows tuslari serbest", flush=True)
 
 def main():
@@ -284,8 +284,8 @@ echo " Servisler:  sidewinderd, keyd, x6-profd"
 echo " Araclar:    sudo x6feat /dev/hidrawX        (rapor 07 durumu)"
 echo "             sudo x6feat /dev/hidrawX on     (macro-pad ac)"
 echo
-echo " Makro kaydi: koşan adama bas -> S tusuna bas -> diziyi bas"
-echo "              -> koşan adamla bitir"
+echo " Makro kaydi: makro tusu (karede top) -> S tusuna bas -> dizi -> makro tusu"
+echo " Makro silme: makro tusu -> S tusuna bas -> HICBIR SEY basmadan makro tusu"
 echo " Profiller:   1/2/3 tuslari; profil 2-3'te Windows kilidi"
 echo " NOT: Kilit grubu icin OTURUMU KAPATIP ACIN (input grubu)."
 echo "========================================================"

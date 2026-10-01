@@ -9,18 +9,29 @@ dağıtımlarda çalışır hale getiren tek-parça kurulum scripti ve dokümant
 > (profil bazlı Windows kilidi, macro-pad kontrol aracı, çekirdek ioctl uyumluluğu
 > çözümü) bir araya getirir.
 
-## sidewinderd ile Farkımız Ne?
+## Özellikler
 
-Bu repo [sidewinderd](https://github.com/tolga9009/sidewinderd)'in üzerine kuruludur
-ve ona dokunmaz; tüm başarı sidewinderd'e aittir. Farkımız şunlar:
+- **Tek komutla kurulum:** `sudo ./install.sh` — Arch/CachyOS ve Ubuntu/Debian'da
+  bağımlılıkları, derlemeyi, servisleri ve yapılandırmayı tek adımda halleder
+- **Makro sistemi:** S1–S10 makro tuşları × 3 profil bankası (toplam 30 makro),
+  makro tuşu ile kayıt, boş makro ile silme
+- **Profil bazlı Windows-tusu kilidi:** 1/2/3 profil tuşlarıyla; oyun
+  profillerinde Windows tuşu otomatik kilitlenir, masaüstü profilinde serbest kalır
+- **Macro-pad modu kontrolü:** `x6feat` aracı ile modun durumunu görme ve açma
+- **Sistem çapında çalışır:** X11 ve Wayland'de aynı davranış
+- **Tam otomatik servisler:** sidewinderd, keyd ve x6-profd açılışta hazır olur
+- **Belgelenmiş protokol:** HID rapor düzeni ve ioctl değerleri tersine
+  mühendislikle çözülüp bu dosyada paylaşıldı
 
-| Özellik | sidewinderd | Bu repo |
+## Faydalandığımız Açık Kaynak Projeler
+
+Bu paket, aşağıdaki harika projeler sayesinde mümkün oldu. Geliştiricilerine
+özellikle teşekkür ederiz:
+
+| Proje | Geliştirici | Bu paketteki rolü |
 |---|---|---|
-| Makrolar, profil bankaları, LED'ler (X4/X6/G105/G710+) | ✅ | ✅ (aynısı) |
-| Tek komutla sıfırdan kurulum (CMake ≥ 4 yaması dahil) | ❌ | ✅ |
-| Profil bazlı Windows-tusu kilidi | ❌ | ✅ (`keyd` + `x6-profd`) |
-| Macro-pad modu elle kontrol aracı | ❌ | ✅ (`x6feat`) |
-| HID protokolü tersine mühendislik notları | ❌ | ✅ |
+| [sidewinderd](https://github.com/tolga9009/sidewinderd) | Tolga Cakır ([@tolga9009](https://github.com/tolga9009)) | X6'nın makro, profil ve LED altyapısının tamamı |
+| [keyd](https://github.com/rvaiya/keyd) | Raheman Vaiya ([@rvaiya](https://github.com/rvaiya)) | Windows tuşu kilidinin tuş haritalama motoru |
 
 ## Donanım Özellik Durumu
 
@@ -28,10 +39,9 @@ ve ona dokunmaz; tüm başarı sidewinderd'e aittir. Farkımız şunlar:
 |---|---|---|
 | Makro tuşları (S1–S10) | ✅ | sidewinderd |
 | Profil bankları (1/2/3) | ✅ | 3 × 10 = 30 ayrı makro kapasitesi |
-| Makro kayıt tuşu (koşan adam) | ✅ | Kayıt fonksiyonu çalışıyor; **ışığı yanmıyor** |
+| Makro tuşu (karede top) | ✅ | Kaydın başlatıldığı/bitiği ana tuş; mod aç/kapa |
+| Koşan adam (record) tuşu | ⚠️ | Alternatif kayıt tuşu; yalnızca LED'i yanmıyor |
 | Makro (S) ve profil LED'leri | ✅ | Hepsi yanıyor |
-| Top tuşu (karede top) | ✅ | Macro-pad modunu aç/kapatır |
-| Koşan adam (record) LED'i | ❌ | Tek çalışmayan ışık bu (protokol notlarına bakın) |
 | Profil bazlı Windows kilidi | ✅ | **Bu repoya özel** (keyd + x6-profd) |
 | Macro-pad modu elle kontrol | ✅ | **Bu repoya özel** (x6feat) |
 | Kayıt (record) LED'i | ❌ | Donanım sağlam; protokolü çözülmemiş (bkz. Protokol Notları) |
@@ -88,25 +98,27 @@ değiştirilebilir.
 
 ### Makro kaydı
 
-1. **Koşan adam tuşuna bas** → ışık yanar; S tuşları ve koşan adam ışığı
-   yanıp sönmeye başlar (atama modu)
+**Makro tuşu** = klavyenin sol üstündeki, **kare içinde top** simgeli tuş.
+
+1. **Makro tuşuna bas** → ışık yanar; S tuşları ve makro tuşu yanıp sönmeye
+   başlar (atama modu)
 2. **Makro atayacağın S tuşuna bas** → o tuş için kayıt başlar
 3. **İstediğin tuş dizisini bas** (örn. `Ctrl+Shift+T`)
-4. **Koşan adam tuşuna tekrar bas** → kayıt biter, makro o S tuşuna atanmış olur
+4. **Makro tuşuna tekrar bas** → kayıt biter, makro o S tuşuna atanmış olur
 
 Makroyu oynatmak için S tuşuna normal şekilde basman yeterli.
 
-**Alternatif yol — koşan adama hiç basmadan:** Makro atayacağın S tuşuna
-**basılı tut** → LED yanıp söner → diziyi bas → aynı S tuşuna **tekrar basılı tut**
-→ kayıt biter.
+**Alternatifler:** "Koşan adam" (record) simgeli tuş da kayıt başlatır/bitirir
+(aynı akış onunla da yürür). Ayrıca S tuşuna **basılı tutarak** da kayıt yapılabilir
+(basılı tut → LED yanıp söner → dizi → tekrar basılı tut).
 
 ### Makro silme
 
 Boş makro kaydetmek silmek demektir:
 
-1. **Koşan adam tuşuna bas** → ışıklar yanıp sönmeye başlar
+1. **Makro tuşuna bas** → ışıklar yanıp sönmeye başlar
 2. **Sileceğin makronun kayıtlı olduğu S tuşuna bas**
-3. **Hiçbir tuşa basmadan** koşan adam tuşuna tekrar bas → o S tuşuna boş makro
+3. **Hiçbir tuşa basmadan** makro tuşuna tekrar bas → o S tuşuna boş makro
    kaydedilir, eski makro silinir
 
 Makrolar sistem çapında çalışır (X11/Wayland fark etmez).
@@ -125,18 +137,17 @@ sudo x6feat /dev/hidrawX ledon  # record LED bitlerini yakar (test amaçlı)
 (X düğüm numarası cihaza göre değişir; `ls /dev/hidraw*` ile bakın veya
 `/sys/class/hidraw/*/device/uevent` içinde `045E`/`074B` arayın.)
 
-**Macro-pad modu nedir:** Top tuşu (karede top) bu modu aç/kapatır. Kapalıyken
+**Macro-pad modu nedir:** Makro tuşu (karede top) bu modu aç/kapatır. Kapalıyken
 ayrılabilir numpad normal rakam tuşu, açıkken ek makro tuşu (S11+) olarak çalışır.
 Bazı işlevler (ör. kayıt tuşu) bu moda bağlıdır; mod kapanırsa `x6feat ... on` ile
 açın ya da top tuşuna bir kez basın.
 
-**Top tuşu ne işe yarıyor?** X6'nın mıknatıslı numpad'ı iki kişilik çalışır:
-normal rakam tuşları ya da **ek makro tuşları (S11+)**. Top tuşu bu iki kişilik
-arasında geçiş yapar — Windows'taki "Game Center" tuşunun birebir karşılığıdır.
-Numpad'ı hiç makro tuşu olarak kullanmıyorsanız bu tuşa basmanıza gerek yok;
-yalnızca makro-pad modunun **açık** kaldığından emin olun (`sudo x6feat /dev/hidrawX`
-ile `ACIK` görmelisiniz). Yanlışlıkla basıp modu kapatırsanız kayıt tuşu gibi bazı
-işlevler tepkisizleşir — o durumda bir kez daha basarak geri açın.
+**Makro tuşu (karede top) ne işe yarıyor?** X6'nın mıknatıslı numpad'ı iki
+kişilik çalışır: normal rakam tuşları ya da **ek makro tuşları (S11+)**. Makro
+tuşu bu iki kişilik arasında geçiş yapar (makro-pad modu) ve aynı zamanda yukarıdaki
+kayıt akışının başladığı/bittiği tuştur. Yanlışlıkla basıp modu kapatırsanız kayıt
+akışı tepkisizleşebilir — bir kez daha basarak geri açın ya da mod durumunu
+`sudo x6feat /dev/hidrawX` ile kontrol edin (`ACIK` görmelisiniz).
 
 ## Protokol Notları (tersine mühendislik bulguları)
 
