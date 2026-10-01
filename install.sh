@@ -150,7 +150,7 @@ LOCK_PROFILES = {2, 3}          # bu profillerde Windows kilidi
 #   lock       : ekrani kilitle                             (loginctl)
 #   f13        : sanal F13 tusuna bas (sistem kisayollarina baglanir)
 #   none       : islev yok
-MEDIA_ACTION = "brightness"
+MEDIA_ACTION = "lock"
 LONG_PRESS_SEC = 0.5
 BRIGHTNESS_STEP = "5%"
 
@@ -186,8 +186,12 @@ def media_action(long_press):
                        capture_output=True)
         print("ses: ac/kapat", flush=True)
     elif MEDIA_ACTION == "lock":
-        subprocess.run(["loginctl", "lock-session"], capture_output=True)
-        print("ekran kilitlendi", flush=True)
+        r = subprocess.run(["loginctl", "lock-sessions"],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            print("lock calismadi:", r.stderr.strip(), flush=True)
+        else:
+            print("ekran kilitlendi", flush=True)
     elif MEDIA_ACTION == "f13":
         fire_f13()
 
