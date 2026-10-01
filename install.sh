@@ -46,10 +46,12 @@ git clone --depth 1 https://github.com/tolga9009/sidewinderd "$TMP/sidewinderd"
 
 # Yamalar:
 #  a) CMake >= 4 uyumlulugu (CMAKE_MINIMUM_REQUIRED 2.8.8 reddediliyor)
-#  b) Media center (0x10) basildiginda sanal klavyeden F13 yayinla.
-#     Boylece tuus KDE/GNOME kisayollarindan herhangi bir isleve baglanabilir.
-#     (Macro-pad modu x6feat araciyla yonetilir.)
-sed -i 's/toggleMacroPad();/virtInput_->sendEvent(EV_KEY, KEY_F14, 1); virtInput_->sendEvent(EV_KEY, KEY_F14, 0);/' \
+#  b) Media center (0x10) basildiginda ekrani KILITLE.
+#     Daemon root calistigi icin loginctl dogrudan calisir; KDE/keyd
+#     baglantisina gerek kalmaz.
+sed -i 's/#include "sidewinder.hpp"/#include <cstdlib>\n#include "sidewinder.hpp"/' \
+    "$TMP/sidewinderd/src/vendor/microsoft/sidewinder.cpp"
+sed -i 's/toggleMacroPad();/system("loginctl lock-sessions");/' \
     "$TMP/sidewinderd/src/vendor/microsoft/sidewinder.cpp"
 
 cmake -S "$TMP/sidewinderd" -B "$TMP/build" \
@@ -306,6 +308,6 @@ echo "             sudo x6feat /dev/hidrawX off    (macro-pad kapat)"
 echo
 echo " Makro kaydi: makro tusu (karede top) -> S tusuna bas -> dizi -> makro tusu"
 echo " Makro silme: makro tusu -> S tusuna bas -> HICBIR SEY basmadan makro tusu"
-echo " Media center: F14 yayinlar - KDE kisayollarindan baglayin"
+echo " Media center: ekrani KILITLER"
 echo " Profiller:   1/2/3 tuslari; profil 2-3'te Windows kilidi"
 echo "========================================================"

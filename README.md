@@ -90,23 +90,15 @@ Her profilin kendi S1–S10 makro seti vardır (toplam 30 makro). Önerilen düz
 Kilitli profiller `x6-profd.py` içindeki `LOCK_PROFILES = {2, 3}` satırından
 değiştirilebilir.
 
-### Media center tuşu — F14 kısayolu
+### Media center tuşu — ekran kilidi
 
-Bu paket, sidewinderd'e küçük bir yama uygular: media center tuşuna basıldığında
-daemon, **sanal klavyesinden F14 tuşu** yayınlar. F14 hiçbir normal klavyede
-olmadığı için hiçbir şeyle çakışmaz. Tuşu bir işleve bağlamak için:
+Bu paket, sidewinderd'e küçük bir yama uygular: **media center tuşuna
+basıldığında ekran anında kilitlenir** (`loginctl lock-sessions`). Daemon root
+olarak çalıştığı için KDE/keyd kısayolu gerekmez — tuş her koşulda çalışır.
 
-1. **KDE:** Sistem Ayarları → Kısayollar → kendi kısayollarınız → yeni küresel
-   kısayol → Komut/URL: `loginctl lock-session` (veya istediğiniz komut;
-   `konsole`, `spectacle` gibi) → kısayol alanına tıklayıp **media center
-   tuşuna basın** ("F14" görünecek)
-2. **GNOME:** Ayarlar → Klavye → Kısayollar → Özel Kısayollar → aynı şekilde
-
-Not: tuş, sidewinderd'in "Sidewinderd" adlı sanal klavyesinden gelir.
-
-> **KDE çakışması:** KDE, F14'ü varsayılan olarak sistem ayarlarına atamış
-> olabilir. Kısayollar aramasında "F14" yazıp o varsayılan atamayı silin;
-> sonra kendi kısayolunuzu (ör. `loginctl lock-session`) F14'e bağlayın.
+> İşlevi değiştirmek isterseniz: install.sh içindeki
+> `system("loginctl lock-sessions");` satırını istediğiniz komutla değiştirin
+> (ör. `system("systemctl suspend");` → uyku).
 
 ## Araçlar
 
