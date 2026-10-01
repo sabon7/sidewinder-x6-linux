@@ -39,8 +39,10 @@ Bu paket, aşağıdaki harika projeler sayesinde mümkün oldu. Geliştiricileri
 |---|---|---|
 | Makro tuşları (S1–S10) | ✅ | sidewinderd |
 | Profil bankları (1/2/3) | ✅ | 3 × 10 = 30 ayrı makro kapasitesi |
-| Makro tuşu (karede top) | ✅ | Kaydın başlatıldığı/bitiği ana tuş; mod aç/kapa |
-| Koşan adam (record) tuşu | ⚠️ | Alternatif kayıt tuşu; yalnızca LED'i yanmıyor |
+| Makro tuşu (karede top) | ✅ | Kayıt akışını başlatır/bitirir (0x11) |
+| Media center tuşu | ✅ | Macro-pad modunu aç/kapatır (0x10) |
+| Profil tuşları (1/2/3) | ✅ | Bank değiştirir (0x14) |
+| Koşan adam tuşu | ❌ | Sinyal göndermiyor; Linux'ta işlevsiz |
 | Makro (S) ve profil LED'leri | ✅ | Hepsi yanıyor |
 | Profil bazlı Windows kilidi | ✅ | **Bu repoya özel** (keyd + x6-profd) |
 | Macro-pad modu elle kontrol | ✅ | **Bu repoya özel** (x6feat) |
@@ -96,6 +98,19 @@ Her profilin kendi S1–S10 makro seti vardır (toplam 30 makro).
 Kilitli profiller `x6-profd.py` içindeki `LOCK_PROFILES = {2, 3}` satırından
 değiştirilebilir.
 
+### Tuşların haritası (üst bölüm)
+
+| Tuş | HID kodu | İşlev |
+|---|---|---|
+| Makro tuşu (kare içinde top) | `0x11` | Kayıt akışını başlatır/bitirir — makro kaydının ana tuşu |
+| Media center tuşu | `0x10` | Macro-pad modunu açar/kapatır (numpad'ın makro kişiliği) |
+| Profil tuşları (1/2/3) | `0x14` | Aktif makro bankasını değiştirir |
+| Koşan adam tuşu | — | **Hiçbir sinyal göndermiyor**; Linux'ta işlevsiz |
+
+> Not: Koşan adam tuşu Windows'ta Intellitype yüklüyken çalışıyordu; Linux'ta
+> hiçbir rapor üretmiyor. Kayıt LED'i sorunu da bu tuşla ilgilidir
+> (bkz. Protokol Notları).
+
 ### Makro kaydı
 
 **Makro tuşu** = klavyenin sol üstündeki, **kare içinde top** simgeli tuş.
@@ -108,8 +123,7 @@ değiştirilebilir.
 
 Makroyu oynatmak için S tuşuna normal şekilde basman yeterli.
 
-**Alternatifler:** "Koşan adam" (record) simgeli tuş da kayıt başlatır/bitirir
-(aynı akış onunla da yürür). Ayrıca S tuşuna **basılı tutarak** da kayıt yapılabilir
+**Alternatif:** S tuşuna **basılı tutarak** da kayıt yapılabilir
 (basılı tut → LED yanıp söner → dizi → tekrar basılı tut).
 
 ### Makro silme
@@ -142,12 +156,12 @@ ayrılabilir numpad normal rakam tuşu, açıkken ek makro tuşu (S11+) olarak �
 Bazı işlevler (ör. kayıt tuşu) bu moda bağlıdır; mod kapanırsa `x6feat ... on` ile
 açın ya da top tuşuna bir kez basın.
 
-**Makro tuşu (karede top) ne işe yarıyor?** X6'nın mıknatıslı numpad'ı iki
-kişilik çalışır: normal rakam tuşları ya da **ek makro tuşları (S11+)**. Makro
-tuşu bu iki kişilik arasında geçiş yapar (makro-pad modu) ve aynı zamanda yukarıdaki
-kayıt akışının başladığı/bittiği tuştur. Yanlışlıkla basıp modu kapatırsanız kayıt
-akışı tepkisizleşebilir — bir kez daha basarak geri açın ya da mod durumunu
-`sudo x6feat /dev/hidrawX` ile kontrol edin (`ACIK` görmelisiniz).
+**Tuşların görev dağılımı:** Kayıt akışını **makro tuşu** (kare içinde top,
+`0x11`) başlatır ve bitirir. **Media center tuşu** (`0x10`) makro-pad modunu
+açar/kapatır — mod kapalıysa numpad normal rakam tuşu, açıkken ek makro tuşu
+(S11+) olarak çalışır ve kayıt akışının çalışması için bu modun açık olması gerekir.
+Yanlışlıkla kapatırsanız media center tuşuna tekrar basın ya da
+`sudo x6feat /dev/hidrawX on` ile açın.
 
 ## Protokol Notları (tersine mühendislik bulguları)
 
@@ -185,7 +199,7 @@ fcntl.ioctl(f, 0xC0024806, bytes(buf))   # yaz
 | `0x04` | Profil 1 LED |
 | `0x08` | Profil 2 LED |
 | `0x10` | Profil 3 LED |
-| `0x60` | Record LED (sidewinderd tanımı — X6'da **etkisiz**, bkz. aşağı) |
+| `0x60` | Record LED bitleri (sidewinderd tanımı — X6'da **etkisiz**, bkz. aşağı) |
 
 ### Rapor 01 (input, 8 bayt) — özel tuşlar (6. bayt)
 
@@ -195,12 +209,12 @@ fcntl.ioctl(f, 0xC0024806, bytes(buf))   # yaz
 | `0x11` | Koşan adam (Record) — makro kaydı başlat/bitir |
 | `0x14` | Profil tuşu — bank değiştir |
 
-### Bilinen sorun: Record LED
+### Bilinen sorun: Koşan adam tuşunun LED'i
 
 Rapor 07'nin **tüm bitleri 1 yapıldığında** (`0xFF` testi) X6'da bütün LED'ler
-yanarken record LED'i yanmaz. Rapor 09 ve `0A` ise hidraw üzerinden yazılamaz
-(`EPIPE`). Windows Intellitype bu LED'i sürüyor; kullanılan protokol adımı
-bilinmiyor. Donanım sağlamdır (Windows'ta çalışıyor). Bu bulgu
+yanarken yalnızca koşan adam tuşunun ışığı yanmaz. Rapor 09 ve `0A` ise hidraw
+üzerinden yazılamaz (`EPIPE`). Windows Intellitype bu LED'i sürüyor; kullanılan
+protokol adımı bilinmiyor. Donanım sağlamdır (Windows'ta çalışıyor). Bu bulgu
 [sidewinderd #50](https://github.com/tolga9009/sidewinderd/issues/50)'nin
 eksik kalan parçasıdır.
 
@@ -210,7 +224,7 @@ eksik kalan parçasıdır.
   yolunda çökme hatası vardır (`SIGSEGV`). `x6-profd` bu yüzden `reload` yerine
   `systemctl restart keyd` kullanır; profil değişiminde çok kısa bir giriş
   kesintisi olması normaldir.
-- **Kayıt (record) LED'i**: Yukarıdaki Protokol Notları bölümüne bakın.
+- **Koşan adam tuşunun LED'i yanmıyor**: Yukarıdaki Protokol Notları bölümüne bakın.
 
 ## Sorun Giderme
 

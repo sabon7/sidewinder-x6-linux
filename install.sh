@@ -6,13 +6,6 @@
 #    - Arch tabanlı (CachyOS, Manjaro, EndeavourOS...): pacman
 #    - Debian/Ubuntu tabanlı (Ubuntu, Mint, Pop!_OS...): apt
 #
-#  Kurulumun tamamini tek komutta yapar:
-#    - sidewinderd (GitHub: tolga9009/sidewinderd) derler ve kurar
-#    - systemd servislerini ve yapilandirmayi hazirlar
-#    - keyd + x6-profd ile profil bazli Windows-tusu kilidi kurar
-#    - x6feat aracini derler (macro-pad modu kontrolu)
-#    - macro-pad modunu acar
-#
 #  Kullanim:  sudo ./install.sh
 # ============================================================================
 set -euo pipefail
@@ -32,7 +25,6 @@ if command -v pacman &>/dev/null; then
 elif command -v apt-get &>/dev/null; then
     apt-get update
     apt-get install -y build-essential cmake git libconfig-dev libtinyxml2-dev libudev-dev
-    # keyd Ubuntu/Debian depolarinda yok -> kaynaktan derle
     if ! command -v keyd &>/dev/null; then
         echo "==> keyd kaynaktan derleniyor (Ubuntu/Debian)..."
         KTMP=$(mktemp -d)
@@ -51,13 +43,13 @@ echo "==> sidewinderd derleniyor..."
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 git clone --depth 1 https://github.com/tolga9009/sidewinderd "$TMP/sidewinderd"
+
 cmake -S "$TMP/sidewinderd" -B "$TMP/build" \
       -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
       -DCMAKE_INSTALL_PREFIX=/usr
 cmake --build "$TMP/build"
 cmake --install "$TMP/build"
 
-# systemd servisi (cmake kurmadiysa diye garantiye alalim)
 cat > /etc/systemd/system/sidewinderd.service <<'SVCEOF'
 [Unit]
 Description=Support for Microsoft SideWinder X4 / X6 and Logitech G105 / G710+
@@ -71,7 +63,6 @@ RestartSec=2
 WantedBy=multi-user.target
 SVCEOF
 
-# yapilandirma: root yerine gercek kullanici + kalici profil dizini
 cat > /etc/sidewinderd.conf <<CFGEOF
 user = "$USER_NAME";
 capture_delays = true;
@@ -132,14 +123,14 @@ int main(int argc, char **argv) {
 CEOF
 gcc -O2 "$TMP/x6feat.c" -o /usr/local/bin/x6feat
 
-# ---------------------------------------------------------------- 5. x6-profd (profil izleyici)
+# ---------------------------------------------------------------- 5. x6-profd (profil izleyici + parlaklik)
 echo "==> x6-profd kuruluyor..."
 cat > /usr/local/bin/x6-profd.py <<'PYEOF'
 #!/usr/bin/env python3
-# x6-profd.py - X6 profil izleyici: profil 2/3'te Windows tuslarini kilitler
+# x6-profd.py - X6 profil izleyici + kosan adam (0x11) parlaklik kontrolu
 import os, fcntl, selectors, subprocess, time
 
-LOCK_PROFILES = {2, 3}          # bu profillerde Windows kilitli
+LOCK_PROFILES = {2, 3}          # bu profillerde Windows kilidi
 CONF = "/etc/keyd/zz-x6-winlock.conf"
 CONF_BODY = """[ids]
 045e:074b
@@ -148,6 +139,11 @@ CONF_BODY = """[ids]
 leftmeta = noop
 rightmeta = noop
 """
+
+# Koşan adam tuşu (0x11): kısa basış = parlaklık azalt, uzun basış = artır
+RECORD_KEY_ACTION = True
+LONG_PRESS_SEC = 0.5
+BRIGHTNESS_STEP = "5%"
 
 def ioc(d, nr, ln):
     return (d << 30) | (0x48 << 8) | nr | (ln << 16)
@@ -186,12 +182,20 @@ def apply(prof):
     exists = os.path.exists(CONF)
     if lock and not exists:
         open(CONF, "w").write(CONF_BODY)
-        subprocess.run(["keyd", "reload"], capture_output=True)
+        subprocess.run(["systemctl", "restart", "keyd"], capture_output=True)
         print(f"profil {prof}: Windows tuslari KILITLI", flush=True)
     elif not lock and exists:
         os.remove(CONF)
-        subprocess.run(["keyd", "reload"], capture_output=True)
+        subprocess.run(["systemctl", "restart", "keyd"], capture_output=True)
         print(f"profil {prof}: Windows tuslari serbest", flush=True)
+
+def brightness(direction):
+    r = subprocess.run(["brightnessctl", "set", direction],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        print("brightnessctl calismadi:", r.stderr.strip(), flush=True)
+    else:
+        print("parlaklik:", direction, flush=True)
 
 def main():
     while True:
@@ -207,16 +211,29 @@ def main():
             pass
         sel = selectors.DefaultSelector()
         sel.register(fd, selectors.EVENT_READ)
+        press_t = None
         try:
             while True:
                 for key, _ in sel.select():
                     data = os.read(key.fileobj, 64)
-                    if len(data) >= 8 and data[0] == 1 and data[6] == 0x14:
-                        time.sleep(0.15)   # LED bitsinin guncellenmesini bekle
+                    if len(data) < 8 or data[0] != 1:
+                        continue
+                    code = data[6]
+                    if code == 0x14:                  # profil tuşu
+                        time.sleep(0.15)              # LED bitlerinin guncellenmesini bekle
                         try:
                             apply(read_profile(fd))
                         except OSError:
                             pass
+                    elif RECORD_KEY_ACTION and code == 0x11:   # koşan adam basıldı
+                        press_t = time.time()
+                    elif code == 0 and press_t is not None:    # koşan adam bırakıldı
+                        held = time.time() - press_t
+                        press_t = None
+                        if held < LONG_PRESS_SEC:
+                            brightness("-" + BRIGHTNESS_STEP)
+                        else:
+                            brightness("+" + BRIGHTNESS_STEP)
         except OSError:
             os.close(fd); time.sleep(2)
 
@@ -226,7 +243,7 @@ chmod +x /usr/local/bin/x6-profd.py
 
 cat > /etc/systemd/system/x6-profd.service <<SVCEOF
 [Unit]
-Description=X6 profil izleyici (profil bazli Windows kilidi)
+Description=X6 profil izleyici (profil bazli Windows kilidi + parlaklik)
 After=keyd.service
 
 [Service]
@@ -287,5 +304,4 @@ echo
 echo " Makro kaydi: makro tusu (karede top) -> S tusuna bas -> dizi -> makro tusu"
 echo " Makro silme: makro tusu -> S tusuna bas -> HICBIR SEY basmadan makro tusu"
 echo " Profiller:   1/2/3 tuslari; profil 2-3'te Windows kilidi"
-echo " NOT: Kilit grubu icin OTURUMU KAPATIP ACIN (input grubu)."
 echo "========================================================"
