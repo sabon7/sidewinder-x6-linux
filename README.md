@@ -18,6 +18,8 @@ dağıtımlarda çalışır hale getiren tek-parça kurulum scripti ve dokümant
 - **Profil bazlı Windows-tusu kilidi:** 1/2/3 profil tuşlarıyla; oyun
   profillerinde Windows tuşu otomatik kilitlenir, masaüstü profilinde serbest kalır
 - **Macro-pad modu kontrolü:** `x6feat` aracı ile modun durumunu görme ve açma
+- **Media center tuşu yeniden işlevli:** parlaklık, ses kilidi, ekran kilidi
+  ya da F13 kısayolu — tek satırla seçilir
 - **Sistem çapında çalışır:** X11 ve Wayland'de aynı davranış
 - **Tam otomatik servisler:** sidewinderd, keyd ve x6-profd açılışta hazır olur
 - **Belgelenmiş protokol:** HID rapor düzeni ve ioctl değerleri tersine
@@ -40,7 +42,7 @@ Bu paket, aşağıdaki harika projeler sayesinde mümkün oldu. Geliştiricileri
 | Makro tuşları (S1–S10) | ✅ | sidewinderd |
 | Profil bankları (1/2/3) | ✅ | 3 × 10 = 30 ayrı makro kapasitesi |
 | Makro tuşu (karede top) | ✅ | Kayıt akışını başlatır/bitirir (0x11) |
-| Media center tuşu | ✅ | Macro-pad modunu aç/kapatır (0x10) |
+| Media center tuşu | ✅ | Özelleştirilebilir kısayol (varsayılan: F13) |
 | Profil tuşları (1/2/3) | ✅ | Bank değiştirir (0x14) |
 | Koşan adam tuşu | ❌ | Sinyal göndermiyor; Linux'ta işlevsiz |
 | Makro (S) ve profil LED'leri | ✅ | Hepsi yanıyor |
@@ -103,13 +105,38 @@ değiştirilebilir.
 | Tuş | HID kodu | İşlev |
 |---|---|---|
 | Makro tuşu (kare içinde top) | `0x11` | Kayıt akışını başlatır/bitirir — makro kaydının ana tuşu |
-| Media center tuşu | `0x10` | Macro-pad modunu açar/kapatır (numpad'ın makro kişiliği) |
+| Media center tuşu | `0x10` | Sanal F13 tuşu basar — sistem kısayollarına bağlanır |
 | Profil tuşları (1/2/3) | `0x14` | Aktif makro bankasını değiştirir |
 | Koşan adam tuşu | — | **Hiçbir sinyal göndermiyor**; Linux'ta işlevsiz |
 
-> Not: Koşan adam tuşu Windows'ta Intellitype yüklüyken çalışıyordu; Linux'ta
-> hiçbir rapor üretmiyor. Kayıt LED'i sorunu da bu tuşla ilgilidir
-> (bkz. Protokol Notları).
+> Not: Koşan adam tuşu Windows'ta Intellitype yüklüyken çalışıyor gibi
+> görünüyordu; Linux'ta hiçbir rapor üretmiyor. Kayıt LED'i sorunu da bu tuşla
+> ilgilidir (bkz. Protokol Notları).
+
+### Media center tuşu — özelleştirilebilir işlev
+
+Media center tuşuna atanan işlev `x6-profd.py` içindeki **tek satırla** değişir:
+
+```python
+MEDIA_ACTION = "brightness"   # "brightness" | "mute" | "lock" | "f13" | "none"
+```
+
+| Değer | Davranış | Not |
+|---|---|---|
+| `"brightness"` | Kısa bas: parlaklığı kısar / uzun bas (0,5 sn+): açar | `brightnessctl` (kurulumda gelir) |
+| `"mute"` | Sesi aç/kapat | `pactl` |
+| `"lock"` | Ekranı kilitle | `loginctl` |
+| `"f13"` | Sanal **F13** tuşu basar | KDE/GNOME kısayollarından istediğiniz işleve bağlayın (terminal, ekran görüntüsü...) |
+| `"none"` | İşlev yok | |
+
+Adım ayarı için `BRIGHTNESS_STEP = "5%"` satırını değiştirin. Değişiklikten sonra:
+
+```bash
+sudo systemctl restart x6-profd
+```
+
+sidewinderd derlenirken 0x10'in mod-değiştirme işlevi kapatılır; makro-pad modu
+`x6feat` ile yönetilir (`on`/`off`). Makro kaydı bu moddan bağımsız çalışır.
 
 ### Makro kaydı
 

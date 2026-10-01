@@ -21,10 +21,10 @@ echo "==> Kurulum kullanicisi: $USER_NAME"
 # ---------------------------------------------------------------- 1. Bagimliliklar
 echo "==> Bagimliliklar kuruluyor..."
 if command -v pacman &>/dev/null; then
-    pacman -S --needed --noconfirm base-devel cmake git libconfig tinyxml2 keyd
+    pacman -S --needed --noconfirm base-devel cmake git libconfig tinyxml2 keyd python-evdev brightnessctl
 elif command -v apt-get &>/dev/null; then
     apt-get update
-    apt-get install -y build-essential cmake git libconfig-dev libtinyxml2-dev libudev-dev
+    apt-get install -y build-essential cmake git libconfig-dev libtinyxml2-dev libudev-dev python3-evdev brightnessctl
     if ! command -v keyd &>/dev/null; then
         echo "==> keyd kaynaktan derleniyor (Ubuntu/Debian)..."
         KTMP=$(mktemp -d)
@@ -43,6 +43,13 @@ echo "==> sidewinderd derleniyor..."
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 git clone --depth 1 https://github.com/tolga9009/sidewinderd "$TMP/sidewinderd"
+
+# Yamalar:
+#  a) CMake >= 4 uyumlulugu (CMAKE_MINIMUM_REQUIRED 2.8.8 reddediliyor)
+#  b) Media center (0x10) mod-degistirme islevini kapat -> F13 kisayoluna donusur
+#     (mod durumu x6feat araciyla yonetilir; makro kaydi bu moddan bagimsizdir)
+sed -i 's/keyData->index == SW_KEY_GAMECENTER/false \/\* media center: ozel islev *\//' \
+    "$TMP/sidewinderd/src/vendor/microsoft/sidewinder.cpp"
 
 cmake -S "$TMP/sidewinderd" -B "$TMP/build" \
       -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
@@ -93,8 +100,9 @@ cat > "$TMP/x6feat.c" <<'CEOF'
 
 int main(int argc, char **argv) {
     const char *node = argc > 1 ? argv[1] : "/dev/hidraw1";
-    int ledon = argc > 2 && strstr(argv[2], "ledon");
-    int force = argc > 2 && strstr(argv[2], "on") && !ledon;
+    int ledon  = argc > 2 && strstr(argv[2], "ledon");
+    int off    = argc > 2 && strstr(argv[2], "off");
+    int force  = argc > 2 && strstr(argv[2], "on") && !off;
 
     fprintf(stderr, "HIDIOCGFEATURE(2)=0x%lx  HIDIOCSFEATURE(2)=0x%lx\n",
             (unsigned long)HIDIOCGFEATURE(2),
@@ -112,10 +120,14 @@ int main(int argc, char **argv) {
         buf[1] |= 0x60;   /* record LED bitleri */
         if (ioctl(fd, HIDIOCSFEATURE(2), buf) < 0) { perror("SFEATURE"); return 1; }
         printf("record LED yakildi - klavyeye bak!\n");
+    } else if (off) {
+        buf[1] &= ~1;
+        if (ioctl(fd, HIDIOCSFEATURE(2), buf) < 0) { perror("SFEATURE"); return 1; }
+        printf("macro-pad KAPATILDI (numpad rakam moduna doner)\n");
     } else if (force && !(buf[1] & 1)) {
         buf[1] |= 1;
         if (ioctl(fd, HIDIOCSFEATURE(2), buf) < 0) { perror("SFEATURE"); return 1; }
-        printf("macro-pad ACILDI\n");
+        printf("macro-pad ACILDI (numpad makro modunda)\n");
     }
     close(fd);
     return 0;
@@ -123,14 +135,25 @@ int main(int argc, char **argv) {
 CEOF
 gcc -O2 "$TMP/x6feat.c" -o /usr/local/bin/x6feat
 
-# ---------------------------------------------------------------- 5. x6-profd (profil izleyici + parlaklik)
+# ---------------------------------------------------------------- 5. x6-profd (profil izleyici + F13)
 echo "==> x6-profd kuruluyor..."
 cat > /usr/local/bin/x6-profd.py <<'PYEOF'
 #!/usr/bin/env python3
-# x6-profd.py - X6 profil izleyici + kosan adam (0x11) parlaklik kontrolu
+# x6-profd.py - X6 profil izleyici + media center (0x10) ozellestirilebilir islev
 import os, fcntl, selectors, subprocess, time
 
 LOCK_PROFILES = {2, 3}          # bu profillerde Windows kilidi
+
+# Media center (0x10) islevi: "brightness" | "mute" | "lock" | "f13" | "none"
+#   brightness : kisa bas = parlaklik kis / uzun bas = ac   (brightnessctl)
+#   mute       : sesi ac/kapat (toggle)                     (pactl)
+#   lock       : ekrani kilitle                             (loginctl)
+#   f13        : sanal F13 tusuna bas (sistem kisayollarina baglanir)
+#   none       : islev yok
+MEDIA_ACTION = "brightness"
+LONG_PRESS_SEC = 0.5
+BRIGHTNESS_STEP = "5%"
+
 CONF = "/etc/keyd/zz-x6-winlock.conf"
 CONF_BODY = """[ids]
 045e:074b
@@ -140,10 +163,33 @@ leftmeta = noop
 rightmeta = noop
 """
 
-# Koşan adam tuşu (0x11): kısa basış = parlaklık azalt, uzun basış = artır
-RECORD_KEY_ACTION = True
-LONG_PRESS_SEC = 0.5
-BRIGHTNESS_STEP = "5%"
+_ui = None
+def fire_f13():
+    global _ui
+    if _ui is None:
+        from evdev import UInput, ecodes as ec
+        _ui = UInput({ec.EV_KEY: [ec.KEY_F13]}, name="x6-media",
+                     vendor=0x045e, product=0x074b)
+    _ui.write(1, 0x1AF, 1)   # EV_KEY, KEY_F13, press
+    _ui.syn()
+    _ui.write(1, 0x1AF, 0)
+    _ui.syn()
+
+def media_action(long_press):
+    if MEDIA_ACTION == "brightness":
+        subprocess.run(["brightnessctl", "set",
+                        ("+" if long_press else "-") + BRIGHTNESS_STEP],
+                       capture_output=True)
+        print("parlaklik:", "+" if long_press else "-", BRIGHTNESS_STEP, flush=True)
+    elif MEDIA_ACTION == "mute":
+        subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"],
+                       capture_output=True)
+        print("ses: ac/kapat", flush=True)
+    elif MEDIA_ACTION == "lock":
+        subprocess.run(["loginctl", "lock-session"], capture_output=True)
+        print("ekran kilitlendi", flush=True)
+    elif MEDIA_ACTION == "f13":
+        fire_f13()
 
 def ioc(d, nr, ln):
     return (d << 30) | (0x48 << 8) | nr | (ln << 16)
@@ -189,14 +235,6 @@ def apply(prof):
         subprocess.run(["systemctl", "restart", "keyd"], capture_output=True)
         print(f"profil {prof}: Windows tuslari serbest", flush=True)
 
-def brightness(direction):
-    r = subprocess.run(["brightnessctl", "set", direction],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        print("brightnessctl calismadi:", r.stderr.strip(), flush=True)
-    else:
-        print("parlaklik:", direction, flush=True)
-
 def main():
     while True:
         node = find_node()
@@ -216,24 +254,20 @@ def main():
             while True:
                 for key, _ in sel.select():
                     data = os.read(key.fileobj, 64)
-                    if len(data) < 8 or data[0] != 1:
-                        continue
-                    code = data[6]
-                    if code == 0x14:                  # profil tuşu
-                        time.sleep(0.15)              # LED bitlerinin guncellenmesini bekle
-                        try:
-                            apply(read_profile(fd))
-                        except OSError:
-                            pass
-                    elif RECORD_KEY_ACTION and code == 0x11:   # koşan adam basıldı
-                        press_t = time.time()
-                    elif code == 0 and press_t is not None:    # koşan adam bırakıldı
-                        held = time.time() - press_t
-                        press_t = None
-                        if held < LONG_PRESS_SEC:
-                            brightness("-" + BRIGHTNESS_STEP)
-                        else:
-                            brightness("+" + BRIGHTNESS_STEP)
+                    if len(data) >= 8 and data[0] == 1:
+                        code = data[6]
+                        if code == 0x14:              # profil tuşu
+                            time.sleep(0.15)
+                            try:
+                                apply(read_profile(fd))
+                            except OSError:
+                                pass
+                        elif code == 0x10 and MEDIA_ACTION != "none":
+                            press_t = time.time()     # media center basıldı
+                        elif code == 0 and press_t is not None:
+                            held = time.time() - press_t
+                            press_t = None            # media center bırakıldı
+                            media_action(held >= LONG_PRESS_SEC)
         except OSError:
             os.close(fd); time.sleep(2)
 
@@ -243,7 +277,7 @@ chmod +x /usr/local/bin/x6-profd.py
 
 cat > /etc/systemd/system/x6-profd.service <<SVCEOF
 [Unit]
-Description=X6 profil izleyici (profil bazli Windows kilidi + parlaklik)
+Description=X6 profil izleyici (profil bazli Windows kilidi + F13)
 After=keyd.service
 
 [Service]
@@ -300,8 +334,10 @@ echo "========================================================"
 echo " Servisler:  sidewinderd, keyd, x6-profd"
 echo " Araclar:    sudo x6feat /dev/hidrawX        (rapor 07 durumu)"
 echo "             sudo x6feat /dev/hidrawX on     (macro-pad ac)"
+echo "             sudo x6feat /dev/hidrawX off    (macro-pad kapat)"
 echo
 echo " Makro kaydi: makro tusu (karede top) -> S tusuna bas -> dizi -> makro tusu"
 echo " Makro silme: makro tusu -> S tusuna bas -> HICBIR SEY basmadan makro tusu"
+echo " Media center: ozellestirilebilir (x6-profd.py icindeki MEDIA_ACTION)"
 echo " Profiller:   1/2/3 tuslari; profil 2-3'te Windows kilidi"
 echo "========================================================"
