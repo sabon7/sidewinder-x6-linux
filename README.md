@@ -18,8 +18,8 @@ dağıtımlarda çalışır hale getiren tek-parça kurulum scripti ve dokümant
 - **Profil bazlı Windows-tusu kilidi:** 1/2/3 profil tuşlarıyla; oyun
   profillerinde Windows tuşu otomatik kilitlenir, masaüstü profilinde serbest kalır
 - **Macro-pad modu kontrolü:** `x6feat` aracı ile modun durumunu görme ve açma
-- **Media center tuşu yeniden işlevli:** parlaklık, ses kilidi, ekran kilidi
-  ya da F13 kısayolu — tek satırla seçilir
+- **Media center tuşu yeniden işlevli:** varsayılan ekran kilitleme; F13,
+  ses, parlaklık ya da kapalı — tek satırla seçilir
 - **Sistem çapında çalışır:** X11 ve Wayland'de aynı davranış
 - **Tam otomatik servisler:** sidewinderd, keyd ve x6-profd açılışta hazır olur
 - **Belgelenmiş protokol:** HID rapor düzeni ve ioctl değerleri tersine
@@ -118,15 +118,15 @@ değiştirilebilir.
 Media center tuşuna atanan işlev `x6-profd.py` içindeki **tek satırla** değişir:
 
 ```python
-MEDIA_ACTION = "brightness"   # "brightness" | "mute" | "lock" | "f13" | "none"
+MEDIA_ACTION = "lock"   # "lock" | "f13" | "mute" | "brightness" | "none"
 ```
 
 | Değer | Davranış | Not |
 |---|---|---|
-| `"brightness"` | Kısa bas: parlaklığı kısar / uzun bas (0,5 sn+): açar | `brightnessctl` (kurulumda gelir) |
-| `"mute"` | Sesi aç/kapat | `pactl` |
-| `"lock"` | Ekranı kilitle | `loginctl` |
+| `"lock"` | Ekranı kilitle (varsayılan) | `loginctl`, servis root çalıştığı için izin sorunu yok |
 | `"f13"` | Sanal **F13** tuşu basar | KDE/GNOME kısayollarından istediğiniz işleve bağlayın (terminal, ekran görüntüsü...) |
+| `"mute"` | Sesi aç/kapat | `pactl` — klavyede zaten ses tuşları varsa gereksiz |
+| `"brightness"` | Kısa bas: kısar / uzun bas: açar | Yalnızca **dizüstü** ekranlarda çalışır (`brightnessctl`) |
 | `"none"` | İşlev yok | |
 
 Adım ayarı için `BRIGHTNESS_STEP = "5%"` satırını değiştirin. Değişiklikten sonra:
